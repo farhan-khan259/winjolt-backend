@@ -10,7 +10,8 @@ function errorHandler(error, req, res, _next) {
   const status = error.status || (duplicate ? 409 : validation ? 422 : 500);
   const code = error.code && typeof error.code === "string" ? error.code : duplicate ? "DUPLICATE_RECORD" : validation ? "VALIDATION_ERROR" : "INTERNAL_ERROR";
   if (status >= 500) console.error(`[${req.correlationId}]`, error);
-  res.status(status).json({ error: { code, message: status >= 500 ? "An unexpected server error occurred." : error.message, details: error.details, correlation_id: req.correlationId } });
+  const message = status >= 500 ? "An unexpected server error occurred." : duplicate ? "A record with the same unique value already exists." : error.message;
+  res.status(status).json({ error: { code, message, details: error.details, correlation_id: req.correlationId } });
 }
 
 module.exports = { notFound, errorHandler };
