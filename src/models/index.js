@@ -1,0 +1,80 @@
+const mongoose = require("mongoose");
+const { Schema } = mongoose;
+
+const addressSchema = new Schema({ line1: String, line2: String, city: String, county: String, postcode: String, country: { type: String, default: "United Kingdom" } }, { _id: false });
+
+const userSchema = new Schema({
+  publicId: { type: String, unique: true, index: true },
+  accountType: { type: String, enum: ["CUSTOMER", "STAFF"], default: "CUSTOMER", index: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  passwordHash: { type: String, required: true, select: false },
+  firstName: { type: String, required: true, trim: true }, lastName: { type: String, required: true, trim: true },
+  phone: String, dateOfBirth: { type: Date, select: false }, address: addressSchema,
+  status: { type: String, enum: ["PENDING_EMAIL", "ACTIVE", "SUSPENDED", "SELF_EXCLUDED", "REVOKED"], default: "ACTIVE" },
+  emailVerified: { type: Boolean, default: false }, dobGateStatus: { type: String, enum: ["DOB_18PLUS_PASSED", "FAILED"], required: true },
+  emailVerificationTokenHash: { type: String, select: false }, emailVerificationExpiresAt: { type: Date, select: false },
+  passwordResetTokenHash: { type: String, select: false }, passwordResetExpiresAt: { type: Date, select: false },
+  assuranceStatus: { type: String, enum: ["NOT_REQUIRED_UNDER_APPROVED_POLICY", "REQUIRED", "PENDING", "VERIFIED_18_PLUS", "FAILED", "MANUAL_REVIEW"], default: "NOT_REQUIRED_UNDER_APPROVED_POLICY" },
+  roles: [{ type: String }], permissions: [{ type: String }], mfaEnabled: { type: Boolean, default: false },
+  marketingConsent: { type: Boolean, default: false }, termsVersion: String, privacyVersion: String,
+  tokenVersion: { type: Number, default: 0 }, restrictions: [{ type: String }]
+}, { timestamps: true });
+
+const competitionSchema = new Schema({
+  publicId: { type: String, unique: true, index: true }, title: { type: String, required: true }, slug: { type: String, required: true, unique: true, lowercase: true },
+  category: { type: String, required: true }, description: String, images: [String],
+  status: { type: String, enum: ["DRAFT", "REVIEW_REQUIRED", "APPROVED", "SCHEDULED", "LIVE", "PAUSED", "CLOSING", "ENTRY_CLOSED", "DRAW_READY", "DRAW_LOCKED", "RESULT_VERIFIED", "CLAIMS_OPEN", "COMPLETED", "ARCHIVED", "CANCELLED", "INCIDENT_HOLD"], default: "DRAFT", index: true },
+  mainPrize: { prizeId: { type: Schema.Types.ObjectId, ref: "Prize" }, kind: String, title: String, valueMinor: Number, currency: { type: String, default: "GBP" }, secured: { type: Boolean, default: false }, evidenceRefs: [String], fulfilmentTerms: String },
+  priceMinor: { type: Number, min: 0, required: true }, currency: { type: String, default: "GBP" },
+  ticketRange: { start: { type: Number, min: 0, default: 1 }, end: { type: Number, min: 1, required: true }, padWidth: { type: Number, min: 1, max: 12, default: 5 } },
+  maxEntriesPerUser: { type: Number, min: 1, required: true }, maxEntriesPerOrder: { type: Number, min: 1, default: 20 },
+  startsAt: Date, closesAt: Date, drawAt: Date, timezone: { type: String, default: "Europe/London" },
+  rulesVersion: { type: String, required: true }, rulesText: String, freeEntryInstructions: String, freeEntryApproved: { type: Boolean, default: false }, paymentProviderApproved: { type: Boolean, default: false }, legalApproved: { type: Boolean, default: false }, randomnessAuditApproved: { type: Boolean, default: false }, agePolicyApproved: { type: Boolean, default: false },
+  instant: { enabled: { type: Boolean, default: false }, status: { type: String, enum: ["DISABLED", "DRAFT", "REVIEW", "APPROVED", "ACTIVE", "PAUSED", "EXHAUSTED", "CLOSED", "RECONCILED"], default: "DISABLED" }, wheelMode: { type: String, enum: ["PRESENTATION_ON", "PRESENTATION_OFF"], default: "PRESENTATION_OFF" }, manifestHash: String, allocationCursor: { type: Number, default: 0 }, tiers: [{ code: String, title: String, kind: String, valueMinor: Number, plannedCount: Number, allocatedCount: { type: Number, default: 0 }, fulfilmentTerms: String }] },
+  approvals: [{ gate: String, actorId: String, actorEmail: String, approvedAt: Date, evidenceRef: String }],
+  manifestHash: String, version: { type: Number, default: 1 }
+}, { timestamps: true, optimisticConcurrency: true });
+
+const ticketSlotSchema = new Schema({ competition: { type: Schema.Types.ObjectId, ref: "Competition", required: true }, number: { type: Number, required: true }, state: { type: String, enum: ["AVAILABLE", "HELD", "ISSUED", "VOID"], default: "AVAILABLE", index: true }, heldBy: { type: Schema.Types.ObjectId, ref: "User" }, reservation: { type: Schema.Types.ObjectId, ref: "Reservation" }, holdExpiresAt: Date, issuedTicket: { type: Schema.Types.ObjectId, ref: "Ticket" } }, { timestamps: true });
+ticketSlotSchema.index({ competition: 1, number: 1 }, { unique: true });
+ticketSlotSchema.index({ competition: 1, state: 1, number: 1 });
+
+const reservationSchema = new Schema({ publicId: { type: String, unique: true, index: true }, user: { type: Schema.Types.ObjectId, ref: "User", required: true }, competition: { type: Schema.Types.ObjectId, ref: "Competition", required: true }, numbers: [Number], manualNumbers: [Number], luckyDipCount: Number, state: { type: String, enum: ["ACTIVE", "CONSUMED", "EXPIRED", "CANCELLED", "CONFLICT_REQUIRES_REVIEW"], default: "ACTIVE" }, expiresAt: Date, idempotencyKey: { type: String, required: true }, version: { type: Number, default: 1 } }, { timestamps: true });
+reservationSchema.index({ user: 1, idempotencyKey: 1 }, { unique: true });
+
+const orderSchema = new Schema({ publicId: { type: String, unique: true, index: true }, user: { type: Schema.Types.ObjectId, ref: "User", required: true }, competition: { type: Schema.Types.ObjectId, ref: "Competition", required: true }, reservation: { type: Schema.Types.ObjectId, ref: "Reservation", required: true }, lineItems: [{ description: String, quantity: Number, unitAmountMinor: Number, totalMinor: Number }], amountMinor: Number, currency: { type: String, default: "GBP" }, status: { type: String, enum: ["CREATED", "AWAITING_PROVIDER", "PROVIDER_CONFIRMED", "TICKETS_ISSUED", "FAILED", "CANCELLED", "REFUNDED", "CHARGEBACK", "RECONCILIATION_REQUIRED"], default: "CREATED", index: true }, provider: String, providerIntentId: String, providerCheckoutUrl: String, idempotencyKey: String, tickets: [{ type: Schema.Types.ObjectId, ref: "Ticket" }], timeline: [{ status: String, at: Date, reason: String }] }, { timestamps: true });
+orderSchema.index({ user: 1, idempotencyKey: 1 }, { unique: true });
+
+const ticketSchema = new Schema({ publicId: { type: String, unique: true, index: true }, slot: { type: Schema.Types.ObjectId, ref: "TicketSlot", unique: true, required: true }, number: Number, user: { type: Schema.Types.ObjectId, ref: "User", required: true }, competition: { type: Schema.Types.ObjectId, ref: "Competition", required: true }, sourceRoute: { type: String, enum: ["PAID", "FREE"], required: true }, order: { type: Schema.Types.ObjectId, ref: "Order" }, freeEntry: { type: Schema.Types.ObjectId, ref: "FreeEntry" }, rulesVersion: String, mainDrawEligible: { type: Boolean, default: true }, status: { type: String, enum: ["ELIGIBLE", "VOID", "WINNER", "CLAIMED", "ARCHIVED"], default: "ELIGIBLE" }, issuedAt: Date }, { timestamps: true });
+
+const instantResultSchema = new Schema({ publicId: { type: String, unique: true, index: true }, ticket: { type: Schema.Types.ObjectId, ref: "Ticket", unique: true, required: true }, competition: { type: Schema.Types.ObjectId, ref: "Competition", required: true }, status: { type: String, enum: ["COMMITTED_WIN", "COMMITTED_NO_WIN", "NOTIFIED", "CLAIM_PENDING", "CLAIMED", "FULFILLED"], required: true }, outcomeKind: String, prizeCode: String, prizeTitle: String, valueMinor: Number, currency: { type: String, default: "GBP" }, commitProof: String, allocationPosition: Number, committedAt: Date, revealedAt: Date }, { timestamps: true });
+
+const paymentEventSchema = new Schema({ provider: String, eventId: String, order: { type: Schema.Types.ObjectId, ref: "Order" }, type: String, signatureVerified: Boolean, digest: String, amountMinor: Number, payload: Schema.Types.Mixed, processedAt: Date }, { timestamps: true });
+paymentEventSchema.index({ provider: 1, eventId: 1 }, { unique: true });
+
+const freeEntrySchema = new Schema({ publicId: { type: String, unique: true, index: true }, user: { type: Schema.Types.ObjectId, ref: "User", required: true }, competition: { type: Schema.Types.ObjectId, ref: "Competition", required: true }, receiptAt: Date, routeVersion: String, requestedNumber: Number, status: { type: String, enum: ["RECEIVED", "REVIEW_REQUIRED", "APPROVED", "REJECTED", "APPEALED", "CLOSED"], default: "RECEIVED" }, reasonCode: String, reviewer: { type: Schema.Types.ObjectId, ref: "User" }, reservation: { type: Schema.Types.ObjectId, ref: "Reservation" }, ticket: { type: Schema.Types.ObjectId, ref: "Ticket" }, idempotencyKey: String }, { timestamps: true });
+freeEntrySchema.index({ user: 1, competition: 1, idempotencyKey: 1 }, { unique: true });
+
+const drawSchema = new Schema({ publicId: { type: String, unique: true, index: true }, competition: { type: Schema.Types.ObjectId, ref: "Competition", unique: true, required: true }, status: { type: String, enum: ["SCHEDULED", "ENTRY_CLOSED", "FREE_ENTRY_QUEUE_RECONCILED", "LEDGER_LOCKED", "DRAW_EXECUTED", "INDEPENDENTLY_VERIFIED", "PUBLISHED"], default: "SCHEDULED" }, ticketIds: [String], frozenSetHash: String, algorithmVersion: String, randomnessReference: String, winnerTicket: { type: Schema.Types.ObjectId, ref: "Ticket" }, lockApprovals: [{ actorId: String, at: Date }], executeActorId: String, verificationActorId: String, executedAt: Date, publishedAt: Date }, { timestamps: true });
+
+const claimSchema = new Schema({ publicId: { type: String, unique: true, index: true }, user: { type: Schema.Types.ObjectId, ref: "User", required: true }, ticket: { type: Schema.Types.ObjectId, ref: "Ticket", required: true }, instantResult: { type: Schema.Types.ObjectId, ref: "InstantResult" }, draw: { type: Schema.Types.ObjectId, ref: "Draw" }, prizeKind: String, prizeTitle: String, status: { type: String, enum: ["AWARDED", "CUSTOMER_NOTIFIED", "CLAIM_SUBMITTED", "IDENTITY_REVIEW", "ACCEPTED", "DISPATCHED", "COLLECTION_SCHEDULED", "FULFILLED", "DISPUTED", "EXPIRED_UNDER_APPROVED_TERMS", "FAILED_DELIVERY"], default: "AWARDED" }, deliveryPreference: String, evidenceRefs: [String], submittedAt: Date }, { timestamps: true });
+
+const walletEntrySchema = new Schema({ publicId: { type: String, unique: true }, user: { type: Schema.Types.ObjectId, ref: "User", required: true }, currency: { type: String, default: "GBP" }, deltaMinor: { type: Number, required: true }, type: { type: String, enum: ["AWARD", "REDEEM", "REVERSAL", "ADJUSTMENT", "EXPIRY"], required: true }, relatedResult: { type: Schema.Types.ObjectId, ref: "InstantResult" }, idempotencyKey: { type: String, unique: true }, transactionGroup: String, note: String }, { timestamps: true, immutable: true });
+
+const supportCaseSchema = new Schema({ publicId: { type: String, unique: true, index: true }, user: { type: Schema.Types.ObjectId, ref: "User" }, name: String, email: String, type: { type: String, enum: ["ENQUIRY", "COMPLAINT"], default: "ENQUIRY" }, category: String, message: String, reference: String, status: { type: String, enum: ["OPEN", "IN_REVIEW", "AWAITING_CUSTOMER", "RESOLVED", "CLOSED", "APPEALED"], default: "OPEN" }, priority: { type: String, enum: ["LOW", "NORMAL", "HIGH", "URGENT"], default: "NORMAL" }, assignedTo: { type: Schema.Types.ObjectId, ref: "User" }, timeline: [{ actorId: String, message: String, at: Date }] }, { timestamps: true });
+
+const contentVersionSchema = new Schema({ key: { type: String, index: true }, version: Number, status: { type: String, enum: ["DRAFT", "REVIEW", "PUBLISHED", "ARCHIVED"], default: "DRAFT" }, title: String, body: String, seo: Schema.Types.Mixed, editor: { type: Schema.Types.ObjectId, ref: "User" }, approver: { type: Schema.Types.ObjectId, ref: "User" }, publishedAt: Date }, { timestamps: true });
+contentVersionSchema.index({ key: 1, version: 1 }, { unique: true });
+
+const auditEventSchema = new Schema({ publicId: { type: String, unique: true }, correlationId: String, aggregateType: String, aggregateId: String, eventType: String, actorType: String, actorId: String, actorRole: String, reason: String, policyVersion: String, previousStateHash: String, newStateHash: String, previousEventHash: String, eventHash: String, metadata: Schema.Types.Mixed, occurredAt: Date }, { timestamps: false, immutable: true });
+const outboxSchema = new Schema({ eventId: String, handler: String, topic: String, payload: Schema.Types.Mixed, state: { type: String, enum: ["PENDING", "PROCESSING", "SENT", "FAILED"], default: "PENDING" }, retryCount: { type: Number, default: 0 }, nextAttemptAt: Date, claimedAt: Date, sentAt: Date, lastError: String }, { timestamps: true });
+outboxSchema.index({ eventId: 1, handler: 1 }, { unique: true });
+const fileAssetSchema = new Schema({ publicId: { type: String, unique: true, index: true }, originalName: String, storedName: String, mimeType: String, size: Number, sha256: String, purpose: { type: String, enum: ["CAMPAIGN_MEDIA", "PRIZE_EVIDENCE", "CLAIM_EVIDENCE", "SUPPORT_ATTACHMENT"], required: true }, uploadedBy: { type: Schema.Types.ObjectId, ref: "User" }, access: { type: String, enum: ["PRIVATE", "PUBLIC"], default: "PRIVATE" } }, { timestamps: true });
+const prizeSchema = new Schema({ publicId: { type: String, unique: true, index: true }, kind: { type: String, enum: ["WEBSITE_CREDIT", "CASH", "HOLIDAY", "VEHICLE", "ELECTRONICS", "TOOLS", "VOUCHER", "PHYSICAL", "SERVICE", "OTHER"], required: true }, title: { type: String, required: true }, description: String, brand: String, model: String, serialNumber: { type: String, sparse: true, unique: true }, condition: String, location: String, supplier: String, valuationMinor: { type: Number, min: 0 }, currency: { type: String, default: "GBP" }, quantity: { type: Number, min: 1, default: 1 }, availableQuantity: { type: Number, min: 0, default: 1 }, evidenceRefs: [String], status: { type: String, enum: ["DRAFT", "VERIFICATION_REQUIRED", "VERIFIED", "RESERVED", "AWARDED", "FULFILLED", "UNAVAILABLE"], default: "DRAFT" }, createdBy: { type: Schema.Types.ObjectId, ref: "User" }, verifiedBy: { type: Schema.Types.ObjectId, ref: "User" }, verifiedAt: Date, reservedForCompetition: { type: Schema.Types.ObjectId, ref: "Competition" }, fulfilmentTerms: String }, { timestamps: true });
+const subscriberSchema = new Schema({ email: { type: String, unique: true, lowercase: true, trim: true }, status: { type: String, enum: ["PENDING", "SUBSCRIBED", "UNSUBSCRIBED"], default: "PENDING" }, consentAt: Date, source: String, confirmationTokenHash: { type: String, select: false }, confirmedAt: Date, unsubscribedAt: Date }, { timestamps: true });
+
+const models = {
+  User: mongoose.model("User", userSchema), Competition: mongoose.model("Competition", competitionSchema), TicketSlot: mongoose.model("TicketSlot", ticketSlotSchema), Reservation: mongoose.model("Reservation", reservationSchema), Order: mongoose.model("Order", orderSchema), Ticket: mongoose.model("Ticket", ticketSchema), InstantResult: mongoose.model("InstantResult", instantResultSchema), PaymentEvent: mongoose.model("PaymentEvent", paymentEventSchema), FreeEntry: mongoose.model("FreeEntry", freeEntrySchema), Draw: mongoose.model("Draw", drawSchema), Claim: mongoose.model("Claim", claimSchema), WalletEntry: mongoose.model("WalletEntry", walletEntrySchema), SupportCase: mongoose.model("SupportCase", supportCaseSchema), ContentVersion: mongoose.model("ContentVersion", contentVersionSchema), AuditEvent: mongoose.model("AuditEvent", auditEventSchema), Outbox: mongoose.model("Outbox", outboxSchema), FileAsset: mongoose.model("FileAsset", fileAssetSchema), Prize: mongoose.model("Prize", prizeSchema), Subscriber: mongoose.model("Subscriber", subscriberSchema)
+};
+
+module.exports = models;

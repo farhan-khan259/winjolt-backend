@@ -1,0 +1,196 @@
+openapi: 3.1.0
+info:
+  title: WinJolt API
+  version: 1.0.0
+  description: Authoritative customer and staff competition API. Money values are integer minor units and stored times are UTC.
+servers:
+  - url: http://localhost:5000/api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Accounts
+  - name: Competitions
+  - name: Commerce
+  - name: Customer
+  - name: Admin
+paths:
+  /accounts/register:
+    post:
+      tags: [Accounts]
+      security: []
+      summary: Register a customer after a server-side Europe/London DOB gate
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Registration' } } } }
+      responses: { '201': { description: Created }, '409': { $ref: '#/components/responses/Conflict' }, '422': { $ref: '#/components/responses/Validation' }, '429': { description: Rate limited } }
+  /accounts/login:
+    post:
+      tags: [Accounts]
+      security: []
+      summary: Customer login
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Login' } } } }
+      responses: { '200': { description: JWT and customer profile }, '401': { $ref: '#/components/responses/Unauthorized' } }
+  /accounts/verify-email:
+    post: { tags: [Accounts], security: [], summary: Verify a single-use email token, responses: { '200': { description: Email verified }, '422': { $ref: '#/components/responses/Validation' } } }
+  /accounts/password-reset/request:
+    post: { tags: [Accounts], security: [], summary: Queue a non-enumerating password reset email, responses: { '202': { description: Request accepted } } }
+  /accounts/password-reset/confirm:
+    post: { tags: [Accounts], security: [], summary: Replace password using a single-use token and revoke sessions, responses: { '200': { description: Password updated }, '422': { $ref: '#/components/responses/Validation' } } }
+  /admin/auth/login:
+    post:
+      tags: [Admin]
+      security: []
+      summary: Staff password and MFA login
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, password, mfa_code], properties: { email: { type: string, format: email }, password: { type: string }, mfa_code: { type: string } } } } } }
+      responses: { '200': { description: Short-lived staff JWT and permission set }, '401': { $ref: '#/components/responses/Unauthorized' } }
+  /competitions:
+    get:
+      tags: [Competitions]
+      security: []
+      summary: List live and scheduled competitions
+      parameters: [{ in: query, name: q, schema: { type: string } }, { in: query, name: category, schema: { type: string } }, { $ref: '#/components/parameters/Page' }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { description: Paginated public competition list } }
+  /competitions/{id}:
+    get:
+      tags: [Competitions]
+      security: []
+      summary: Get an approved public competition by opaque ID or slug
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses: { '200': { description: Public competition snapshot }, '404': { $ref: '#/components/responses/NotFound' } }
+  /competitions/{id}/tickets:
+    get:
+      tags: [Competitions]
+      security: []
+      summary: Browse advisory sanitized ticket availability
+      parameters: [{ $ref: '#/components/parameters/Id' }, { in: query, name: cursor, schema: { type: integer } }, { in: query, name: search, schema: { type: string } }, { $ref: '#/components/parameters/Limit' }]
+      responses: { '200': { description: Available/unavailable numbers without owner data } }
+  /ticket-reservations:
+    post:
+      tags: [Commerce]
+      summary: Atomically reserve manual and/or uniformly sampled Lucky Dip numbers
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReservationRequest' } } } }
+      responses: { '201': { description: Authoritative expiring reservation }, '409': { $ref: '#/components/responses/Conflict' }, '410': { description: Expired }, '422': { $ref: '#/components/responses/Validation' } }
+  /orders:
+    post:
+      tags: [Commerce]
+      summary: Calculate an order on the server and create hosted provider checkout
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reservation_id], properties: { reservation_id: { type: string } } } } } }
+      responses: { '201': { description: Order and hosted checkout URL }, '422': { $ref: '#/components/responses/Validation' } }
+  /orders/{id}:
+    get:
+      tags: [Commerce]
+      summary: Read an owned order and issued tickets
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses: { '200': { description: Order }, '404': { $ref: '#/components/responses/NotFound' } }
+  /provider/webhooks/stripe:
+    post:
+      tags: [Commerce]
+      security: []
+      summary: Verify and process idempotent Stripe events
+      responses: { '200': { description: Event accepted }, '400': { description: Invalid signature } }
+  /newsletter/subscribe:
+    post: { tags: [Customer], security: [], summary: Record consent and queue double opt-in, responses: { '202': { description: Confirmation queued } } }
+  /newsletter/confirm:
+    post: { tags: [Customer], security: [], summary: Confirm marketing subscription, responses: { '200': { description: Confirmed } } }
+  /free-entries:
+    post:
+      tags: [Commerce]
+      summary: Timestamp a qualifying free-entry application
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses: { '201': { description: Received for controlled review }, '422': { $ref: '#/components/responses/Validation' } }
+  /accounts/dashboard:
+    get: { tags: [Customer], summary: Customer counts and wallet balance, responses: { '200': { description: Dashboard } } }
+  /accounts/tickets:
+    get: { tags: [Customer], summary: Owned tickets and stable instant results, responses: { '200': { description: Ticket list } } }
+  /accounts/orders:
+    get: { tags: [Customer], summary: Owned orders, responses: { '200': { description: Order list } } }
+  /accounts/claims:
+    get: { tags: [Customer], summary: Owned prize claims, responses: { '200': { description: Claim list } } }
+  /tickets/{id}/instant-result:
+    get:
+      tags: [Customer]
+      summary: Return the immutable owned result regardless of wheel mode
+      parameters: [{ $ref: '#/components/parameters/Id' }]
+      responses: { '200': { description: Committed result }, '404': { $ref: '#/components/responses/NotFound' } }
+  /claims/{id}:
+    post:
+      tags: [Customer]
+      summary: Submit an owned prize claim
+      parameters: [{ $ref: '#/components/parameters/Id' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      responses: { '200': { description: Claim submitted } }
+  /support-cases:
+    post:
+      tags: [Customer]
+      security: []
+      summary: Create an enquiry or complaint
+      responses: { '201': { description: Case created } }
+  /admin/dashboard:
+    get: { tags: [Admin], summary: Authoritative operational KPIs, responses: { '200': { description: Metrics }, '403': { $ref: '#/components/responses/Forbidden' } } }
+  /admin/competitions:
+    get: { tags: [Admin], summary: Paginated campaign directory, responses: { '200': { description: Campaigns } } }
+    post: { tags: [Admin], summary: Create a draft campaign and finite ticket pool, responses: { '201': { description: Draft created }, '422': { $ref: '#/components/responses/Validation' } } }
+  /admin/competitions/{id}/submit-review:
+    post: { tags: [Admin], summary: Commit the candidate manifest for independent review, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Review requested } } }
+  /admin/competitions/{id}/approve:
+    post: { tags: [Admin], summary: Independently approve only after all P0 gates pass, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Approved }, '403': { $ref: '#/components/responses/Forbidden' }, '422': { $ref: '#/components/responses/Validation' } } }
+  /admin/competitions/{id}/transition/{action}:
+    post: { tags: [Admin], summary: Apply an audited allowed campaign transition, parameters: [{ $ref: '#/components/parameters/Id' }, { in: path, name: action, required: true, schema: { enum: [schedule, publish, pause, resume, close, incident, archive] } }], responses: { '200': { description: Transitioned } } }
+  /admin/free-entries/{id}/review:
+    post: { tags: [Admin], summary: Reasoned decision; approval atomically allocates the same ticket/result path, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Reviewed } } }
+  /admin/competitions/{id}/draw/lock:
+    post: { tags: [Admin], summary: Reconcile and hash-lock the eligible ledger, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Locked } } }
+  /admin/draws/{id}/execute:
+    post: { tags: [Admin], summary: Execute a CSPRNG draw with actor separation, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Executed } } }
+  /admin/orders/{id}/refund:
+    post: { tags: [Admin], summary: Create a provider refund without rewriting ticket/result history, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Refund created } } }
+  /admin/prizes:
+    get: { tags: [Admin], summary: List prize inventory, responses: { '200': { description: Prizes } } }
+    post: { tags: [Admin], summary: Create a prize inventory record, responses: { '201': { description: Prize created } } }
+  /admin/prizes/{id}/verify:
+    post: { tags: [Admin], summary: Independently verify evidence for a prize, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Verified }, '403': { $ref: '#/components/responses/Forbidden' } } }
+  /admin/prizes/{id}/reserve:
+    post: { tags: [Admin], summary: Atomically reserve a verified prize to one draft campaign, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { description: Reserved }, '409': { $ref: '#/components/responses/Conflict' } } }
+  /admin/assets:
+    post:
+      tags: [Admin]
+      summary: Upload one validated campaign/evidence asset
+      requestBody: { required: true, content: { multipart/form-data: { schema: { type: object, required: [file, purpose], properties: { file: { type: string, format: binary }, purpose: { enum: [CAMPAIGN_MEDIA, PRIZE_EVIDENCE, CLAIM_EVIDENCE, SUPPORT_ATTACHMENT] }, access: { enum: [PRIVATE, PUBLIC] } } } } } }
+      responses: { '201': { description: Asset stored and hashed }, '422': { $ref: '#/components/responses/Validation' } }
+  /admin/audit-events:
+    get: { tags: [Admin], summary: Read the masked append-only audit chain, responses: { '200': { description: Events } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Id: { in: path, name: id, required: true, schema: { type: string } }
+    Page: { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+    Limit: { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }
+    IdempotencyKey: { in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8 } }
+  schemas:
+    Login: { type: object, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string } } }
+    Registration:
+      type: object
+      required: [first_name, last_name, date_of_birth, email, phone, password, address, accept_terms, terms_version, privacy_version]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        date_of_birth: { type: string, format: date }
+        email: { type: string, format: email }
+        phone: { type: string }
+        password: { type: string, minLength: 10 }
+        address: { type: object, required: [line1, city, postcode, country], properties: { line1: { type: string }, line2: { type: string }, city: { type: string }, county: { type: string }, postcode: { type: string }, country: { type: string } } }
+        accept_terms: { const: true }
+        marketing_consent: { type: boolean }
+        terms_version: { type: string }
+        privacy_version: { type: string }
+    ReservationRequest:
+      type: object
+      required: [competition_id, manual_numbers, lucky_dip_count, expected_total_count]
+      properties: { competition_id: { type: string }, manual_numbers: { type: array, items: { oneOf: [{ type: integer }, { type: string }] } }, lucky_dip_count: { type: integer, minimum: 0 }, expected_total_count: { type: integer, minimum: 1 } }
+    Error: { type: object, properties: { error: { type: object, properties: { code: { type: string }, message: { type: string }, details: {}, correlation_id: { type: string } } } } }
+  responses:
+    Unauthorized: { description: Authentication failed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Permission denied, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Record not found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Concurrent or duplicate operation conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Validation: { description: Validation or eligibility failure, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
