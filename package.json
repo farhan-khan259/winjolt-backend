@@ -8,6 +8,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
+    "seed:catalog": "node src/scripts/seedCatalog.js",
     "worker": "node src/workers/outboxWorker.js",
     "test": "node --test",
     "check": "node --check src/server.js"
