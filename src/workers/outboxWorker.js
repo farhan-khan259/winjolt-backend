@@ -15,10 +15,13 @@ async function tick() {
   await item.save();
 }
 
-async function start() {
-  await connectDatabase();
+async function startOutboxWorker({ connect = true } = {}) {
+  if (connect) await connectDatabase();
   console.log("WinJolt outbox worker started");
   await tick();
-  setInterval(() => tick().catch((error) => console.error("Outbox tick failed", error)), 2000);
+  return setInterval(() => tick().catch((error) => console.error("Outbox tick failed", error)), 2000);
 }
-start().catch((error) => { console.error("Outbox worker failed", error); process.exit(1); });
+
+if (require.main === module) startOutboxWorker().catch((error) => { console.error("Outbox worker failed", error); process.exit(1); });
+
+module.exports = { tick, startOutboxWorker };

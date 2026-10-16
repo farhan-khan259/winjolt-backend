@@ -14,6 +14,7 @@ const userSchema = new Schema({
   emailVerified: { type: Boolean, default: false }, dobGateStatus: { type: String, enum: ["DOB_18PLUS_PASSED", "FAILED"], required: true },
   emailVerificationTokenHash: { type: String, select: false }, emailVerificationExpiresAt: { type: Date, select: false },
   passwordResetTokenHash: { type: String, select: false }, passwordResetExpiresAt: { type: Date, select: false },
+  adminOtpHash: { type: String, select: false }, adminOtpExpiresAt: { type: Date, select: false }, adminOtpLastSentAt: { type: Date, select: false }, adminOtpAttempts: { type: Number, default: 0, select: false },
   assuranceStatus: { type: String, enum: ["NOT_REQUIRED_UNDER_APPROVED_POLICY", "REQUIRED", "PENDING", "VERIFIED_18_PLUS", "FAILED", "MANUAL_REVIEW"], default: "NOT_REQUIRED_UNDER_APPROVED_POLICY" },
   roles: [{ type: String }], permissions: [{ type: String }], mfaEnabled: { type: Boolean, default: false },
   marketingConsent: { type: Boolean, default: false }, termsVersion: String, privacyVersion: String,
