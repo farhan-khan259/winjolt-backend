@@ -9,7 +9,7 @@ const { authenticate, requireStaff, permit } = require("../middleware/auth");
 const upload = require("../middleware/uploads");
 
 const router = express.Router();
-router.post("/accounts/register", auth.register); router.post("/accounts/login", auth.login); router.post("/accounts/verify-email", auth.verifyEmail); router.post("/accounts/password-reset/request", auth.requestPasswordReset); router.post("/accounts/password-reset/confirm", auth.resetPassword); router.post("/admin/auth/otp/request", auth.requestAdminOtp); router.post("/admin/auth/login", auth.adminLogin);
+router.post("/accounts/register", auth.register); router.post("/accounts/login", auth.login); router.post("/accounts/verify-email", auth.verifyEmail); router.post("/accounts/password-reset/request", auth.requestPasswordReset); router.post("/accounts/password-reset/confirm", auth.resetPassword); router.post("/admin/auth/login", auth.adminLogin);
 router.get("/accounts/me", authenticate, auth.me); router.post("/accounts/logout", authenticate, auth.logout); router.get("/accounts/eligibility", authenticate, customer.eligibility); router.patch("/accounts/me", authenticate, customer.updateProfile);
 router.get("/accounts/dashboard", authenticate, customer.dashboard); router.get("/accounts/tickets", authenticate, customer.tickets); router.get("/accounts/orders", authenticate, customer.orders); router.get("/accounts/claims", authenticate, customer.claims);
 router.post("/accounts/self-exclude", authenticate, customer.selfExclude);

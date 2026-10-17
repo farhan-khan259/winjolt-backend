@@ -21,15 +21,4 @@ async function sendOutboxEmail(outbox) {
   await transport.sendMail({ from: env.smtp.from, ...message });
 }
 
-async function sendAdminOtpEmail({ to, firstName, code }) {
-  if (!transport) throw new AppError(503, "SMTP_NOT_CONFIGURED", "SMTP is not configured.");
-  await transport.sendMail({
-    from: env.smtp.from,
-    to,
-    subject: "Your WinJolt administrator sign-in code",
-    text: `Hello ${firstName || "administrator"}, your WinJolt sign-in code is ${code}. It expires in 10 minutes. If you did not request this code, do not share it and contact an administrator.`,
-    html: `<p>Hello ${firstName || "administrator"},</p><p>Your WinJolt administrator sign-in code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not request it, do not share it and contact an administrator.</p>`,
-  });
-}
-
-module.exports = { sendOutboxEmail, sendAdminOtpEmail };
+module.exports = { sendOutboxEmail };

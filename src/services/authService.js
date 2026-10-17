@@ -6,7 +6,6 @@ const { User, Outbox } = require("../models");
 const { AppError, assert } = require("../utils/errors");
 const { opaqueId, sha256 } = require("../utils/crypto");
 const { isAtLeast18, parseIsoDate } = require("../utils/age");
-const { sendAdminOtpEmail } = require("./emailService");
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const postcodePattern = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
@@ -61,43 +60,11 @@ async function resetPassword(token, password) {
   user.passwordHash = await bcrypt.hash(password, 12); user.passwordResetTokenHash = undefined; user.passwordResetExpiresAt = undefined; user.tokenVersion += 1; await user.save();
 }
 
-async function requestAdminOtp(email, password) {
-  const normalizedEmail = (email || "").trim().toLowerCase();
-  const user = await User.findOne({ email: normalizedEmail, accountType: "STAFF" }).select("+passwordHash +adminOtpLastSentAt");
+async function login(email, password, staff = false) {
+  const user = await User.findOne({ email: (email || "").trim().toLowerCase(), accountType: staff ? "STAFF" : "CUSTOMER" }).select("+passwordHash");
   if (!user || !(await bcrypt.compare(password || "", user.passwordHash))) throw new AppError(401, "INVALID_CREDENTIALS", "The email address or password is incorrect.");
   assert(user.status === "ACTIVE", 403, "ACCOUNT_RESTRICTED", "This account cannot sign in.");
-  assert(user.mfaEnabled, 403, "MFA_NOT_ENROLLED", "Staff MFA enrollment is required.");
-  const elapsed = Date.now() - (user.adminOtpLastSentAt?.getTime() || 0);
-  assert(elapsed >= 60_000, 429, "OTP_RATE_LIMITED", "Please wait one minute before requesting another code.");
-  const code = crypto.randomInt(100000, 1000000).toString();
-  user.adminOtpHash = sha256(code);
-  user.adminOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  user.adminOtpLastSentAt = new Date();
-  user.adminOtpAttempts = 0;
-  await user.save();
-  try { await sendAdminOtpEmail({ to: user.email, firstName: user.firstName, code }); }
-  catch (error) {
-    user.adminOtpHash = undefined; user.adminOtpExpiresAt = undefined; user.adminOtpAttempts = 0; await user.save();
-    throw error;
-  }
-}
-
-async function login(email, password, staff = false, mfaCode) {
-  const user = await User.findOne({ email: (email || "").toLowerCase(), accountType: staff ? "STAFF" : "CUSTOMER" }).select(staff ? "+passwordHash +adminOtpHash +adminOtpExpiresAt +adminOtpAttempts" : "+passwordHash");
-  if (!user || !(await bcrypt.compare(password || "", user.passwordHash))) throw new AppError(401, "INVALID_CREDENTIALS", "The email address or password is incorrect.");
-  assert(user.status === "ACTIVE", 403, "ACCOUNT_RESTRICTED", "This account cannot sign in.");
-  if (staff) {
-    assert(user.mfaEnabled, 403, "MFA_NOT_ENROLLED", "Staff MFA enrollment is required.");
-    assert(/^\d{6}$/.test(mfaCode || ""), 401, "MFA_INVALID", "Enter the six-digit code sent to your email.");
-    assert(user.adminOtpExpiresAt && user.adminOtpExpiresAt > new Date(), 401, "MFA_EXPIRED", "This sign-in code has expired. Request a new code.");
-    assert((user.adminOtpAttempts || 0) < 5, 401, "MFA_LOCKED", "Too many incorrect attempts. Request a new code.");
-    if (!user.adminOtpHash || sha256(mfaCode) !== user.adminOtpHash) {
-      user.adminOtpAttempts = (user.adminOtpAttempts || 0) + 1; await user.save();
-      throw new AppError(401, "MFA_INVALID", "The sign-in code is incorrect.");
-    }
-    user.adminOtpHash = undefined; user.adminOtpExpiresAt = undefined; user.adminOtpAttempts = 0; await user.save();
-  }
   return { token: tokenFor(user), user: publicUser(user) };
 }
 
-module.exports = { register, login, verifyEmail, requestPasswordReset, resetPassword, requestAdminOtp, publicUser };
+module.exports = { register, login, verifyEmail, requestPasswordReset, resetPassword, publicUser };

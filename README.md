@@ -21,7 +21,7 @@ Do not make a campaign live until the responsible operator has recorded all requ
 1. Copy `.env.example` to `.env` and replace every secret/default.
 2. Start MongoDB as a replica set. For local development, initiate a single-node set named `rs0`.
 3. Run `npm install`.
-4. Set `ADMIN_PASSWORD` and `ADMIN_MFA_CODE`, then run `npm run seed`.
+4. Set `ADMIN_PASSWORD`, then run `npm run seed`.
 5. Run `npm run dev` and, in another process, `npm run worker`.
 6. In `winjolt-frontend`, copy `.env.example` to `.env`, run `npm install`, then `npm start`.
 
@@ -37,7 +37,7 @@ Subscribe at minimum to `checkout.session.completed`, `checkout.session.expired`
 
 ## Security model
 
-- Short-lived JWTs; staff sessions have a shorter TTL and require MFA.
+- Short-lived JWTs; staff sessions have a shorter expiry than customer sessions.
 - API-enforced permissions and separation of duties.
 - Passwords hashed with bcrypt cost 12.
 - Helmet, restricted CORS, input/body limits and endpoint rate limits.
