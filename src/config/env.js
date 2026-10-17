@@ -4,10 +4,11 @@ require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
 const bool = (value, fallback = false) => value == null ? fallback : value === "true";
 const withoutTrailingSlash = (value) => value.replace(/\/+$/, "");
 const defaultFrontendUrl = process.env.NODE_ENV === "production" ? "https://winjolt.onrender.com" : "http://localhost:3000";
-const frontendUrls = (process.env.FRONTEND_URL || defaultFrontendUrl)
+const configuredFrontendUrls = (process.env.FRONTEND_URL || "")
   .split(",")
   .map((value) => withoutTrailingSlash(value.trim()))
   .filter(Boolean);
+const frontendUrls = [...new Set([defaultFrontendUrl, ...configuredFrontendUrls])];
 
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
