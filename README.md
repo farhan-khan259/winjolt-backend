@@ -1,5 +1,7 @@
 # WinJolt backend
 
+For Render deployment, see [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md).
+
 Production-oriented Express/MongoDB API for the WinJolt customer and staff applications. It implements customer/staff authentication, server-side DOB gating, campaign release gates, finite ticket pools, manual and CSPRNG Lucky Dip reservations, provider-authoritative order issuance, paid/free route parity, immutable instant outcomes, draw locking/execution, claims, wallet journals, support/complaints, CMS versions, reporting and a tamper-evident audit chain.
 
 ## Important release status

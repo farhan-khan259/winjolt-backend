@@ -6,7 +6,7 @@ const { Competition, FileAsset, TicketSlot } = require("../models");
 const { opaqueId, sha256 } = require("../utils/crypto");
 
 const frontendImages = path.resolve(__dirname, "../../../winjolt-frontend/src/Assets/Pictures");
-const uploadDirectory = path.resolve(__dirname, "../../uploads");
+const uploadDirectory = env.uploadDir;
 const apiBaseUrl = (process.env.API_PUBLIC_URL || `http://localhost:${env.port}/api/v1`).replace(/\/$/, "");
 
 const daysFromNow = (days, hour = 12) => {

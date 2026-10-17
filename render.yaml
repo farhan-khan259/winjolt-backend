@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: winjolt-backend
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://winjolt.onrender.com
+      - key: PUBLIC_WEB_URL
+        value: https://winjolt.onrender.com
+      - key: PAYMENT_PROVIDER
+        value: disabled
+      - key: GLOBAL_ENTRY_PAUSED
+        value: true
+      - key: WALLET_REDEMPTION_ENABLED
+        value: false
+      - key: FREE_ENTRY_ENABLED
+        value: false

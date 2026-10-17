@@ -11,7 +11,7 @@ const commerce = require("./controllers/commerceController");
 const app = express();
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: env.frontendUrl.split(",").map((value) => value.trim()), credentials: false, allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key", "If-Match", "X-Correlation-Id"] }));
+app.use(cors({ origin: env.frontendUrls, credentials: false, allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key", "If-Match", "X-Correlation-Id"] }));
 app.use(requestContext);
 app.post("/api/v1/provider/webhooks/stripe", express.raw({ type: "application/json", limit: "1mb" }), commerce.stripeWebhook);
 app.use(express.json({ limit: "1mb" }));

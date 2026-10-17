@@ -2,6 +2,12 @@ const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
 
 const bool = (value, fallback = false) => value == null ? fallback : value === "true";
+const withoutTrailingSlash = (value) => value.replace(/\/+$/, "");
+const defaultFrontendUrl = process.env.NODE_ENV === "production" ? "https://winjolt.onrender.com" : "http://localhost:3000";
+const frontendUrls = (process.env.FRONTEND_URL || defaultFrontendUrl)
+  .split(",")
+  .map((value) => withoutTrailingSlash(value.trim()))
+  .filter(Boolean);
 
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
@@ -10,8 +16,9 @@ const env = {
   jwtSecret: process.env.JWT_SECRET || "development-only-secret-change-me-32-chars",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "2h",
   adminJwtExpiresIn: process.env.ADMIN_JWT_EXPIRES_IN || "30m",
-  frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
-  publicWebUrl: process.env.PUBLIC_WEB_URL || "http://localhost:3000",
+  frontendUrls,
+  publicWebUrl: withoutTrailingSlash(process.env.PUBLIC_WEB_URL || defaultFrontendUrl),
+  uploadDir: path.resolve(process.env.UPLOAD_DIR || path.resolve(__dirname, "../../uploads")),
   reservationTtlMinutes: Number(process.env.RESERVATION_TTL_MINUTES || 10),
   paymentProvider: process.env.PAYMENT_PROVIDER || "disabled",
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || "",
