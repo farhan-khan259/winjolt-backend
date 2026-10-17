@@ -10,8 +10,7 @@ exports.register = asyncHandler(async (req, res) => {
 });
 
 exports.login = asyncHandler(async (req, res) => res.json(await auth.login(req.body.email, req.body.password, false)));
-exports.requestAdminOtp = asyncHandler(async (req, res) => { await auth.requestAdminOtp(req.body.email, req.body.password); res.status(202).json({ message: "A six-digit sign-in code has been sent to the staff email address." }); });
-exports.adminLogin = asyncHandler(async (req, res) => res.json(await auth.login(req.body.email, req.body.password, true, req.body.mfa_code)));
+exports.adminLogin = asyncHandler(async (req, res) => res.json(await auth.login(req.body.email, req.body.password, true)));
 exports.verifyEmail = asyncHandler(async (req, res) => res.json({ user: await auth.verifyEmail(req.body.token) }));
 exports.requestPasswordReset = asyncHandler(async (req, res) => { await auth.requestPasswordReset(req.body.email); res.status(202).json({ message: "If an account exists, a reset email has been queued." }); });
 exports.resetPassword = asyncHandler(async (req, res) => { await auth.resetPassword(req.body.token, req.body.password); res.json({ message: "Password updated. Sign in again." }); });

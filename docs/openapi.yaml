@@ -38,8 +38,8 @@ paths:
     post:
       tags: [Admin]
       security: []
-      summary: Staff password and MFA login
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, password, mfa_code], properties: { email: { type: string, format: email }, password: { type: string }, mfa_code: { type: string } } } } } }
+      summary: Staff email and password login
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [email, password], properties: { email: { type: string, format: email }, password: { type: string } } } } } }
       responses: { '200': { description: Short-lived staff JWT and permission set }, '401': { $ref: '#/components/responses/Unauthorized' } }
   /competitions:
     get:

@@ -20,7 +20,7 @@ async function seed() {
         lastName: "Administrator",
         dobGateStatus: "DOB_18PLUS_PASSED",
         status: "ACTIVE",
-        mfaEnabled: true,
+        mfaEnabled: false,
         roles: ["SUPER_ADMIN"],
         permissions: ["*"],
       },
